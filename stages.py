@@ -134,12 +134,12 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     aluResult = alu(val1, val2, cAluContr)
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
-    if (cBranch):
+    if (cBranch & cZero):
         pc = bTarget
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
-    return rdData2, aluResult, cZero, bTarget
+    return rdData2, aluResult
 
 def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
     global dMem
