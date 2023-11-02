@@ -48,9 +48,8 @@ def controlUnit(instr):
     cAluOp1 = int(opcode == 0)
     cAluOp2 = int(opcode == 4)
     cAluOp = 2*cAluOp1+cAluOp2
-    cJmp = int(opcode == 2)
-    # CU returns 9 signals - of which cAluOp is 2 bits wide
-    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cJmp
+    # CU returns 8 signals - of which cAluOp is 2 bits wide
+    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp
 
 def aluControlUnit(cAluOp, func):
     cAluContr = 0
@@ -124,10 +123,10 @@ def decode(instr, cRegDst):
     rdData2 = reg[rdReg2]
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
-    # by the next stage if unneeded)
+    # by the next stage if not needed)
     return rdData1, rdData2, immed, func, wReg
 
-def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc):
+def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     global pc
     cAluContr = aluControlUnit(cAluOp, func)
     val1 = rdData1
@@ -135,16 +134,33 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc):
     aluResult = alu(val1, val2, cAluContr)
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
+    if (cBranch):
+        pc = bTarget
     # this stage returns the result of ALU calculation and whether it
-    # is equal to zero, and also the branch target (will be ignored
-    # by the next stage if unneeded)
-    return aluResult, cZero, bTarget
+    # is equal to zero, and also checks if the new PC should be equal to
+    # the branch target
+    return rdData2, aluResult, cZero, bTarget
 
-def memory(aluResult, cMemWr, cMemRd, cMemReg):
+def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
     global dMem
+    address = aluResult
+    wd = rdData2
+    if (cMemRd):
+        rData = dMem[address]
+        wData = rData if cMemReg else rdData2
+    else:
+        if (cMemWr):
+            dMem[address] = wd
+        wData = rdData2
+    # this stage only returns the content to be written back into a register
+    # (will be ignored by the next stage if not needed)
+    return wData
 
-def writeback():
-    pass
+def writeback(wData, wReg, cRegWr):
+    global reg
+    if (cRegWr):
+        # writes data into the register
+        reg[wReg] = wData
 
 ##### testing
 
