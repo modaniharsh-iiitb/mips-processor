@@ -1,1 +1,3 @@
-import stages
+# non-pipelined processor
+
+import stages, clk

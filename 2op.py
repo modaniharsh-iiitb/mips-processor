@@ -1,1 +1,3 @@
-import stages
+# pipelined processor
+
+import stages, clk
