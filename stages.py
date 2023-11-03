@@ -146,11 +146,14 @@ def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
     address = aluResult
     wd = rdData2
     if (cMemRd):
-        rData = dMem[address]
+        rData = 0
+        for i in range(4):
+            rData += (dMem[address+i] << (24-8*(i)))
         wData = rData if cMemReg else rdData2
     else:
         if (cMemWr):
-            dMem[address] = wd
+            for i in range(4):
+                dMem[address+i] = (rData << (8*i)) >> 24
         wData = rdData2
     # this stage only returns the content to be written back into a register
     # (will be ignored by the next stage if not needed)
@@ -170,7 +173,7 @@ def printDMem():
             address = hex(k)
             data = 0
             for i in range(4):
-                data += (dMem[k+i] << (32-8*(i+1)))
+                data += (dMem[k+i] << (24-8*(i)))
             print(address, data, sep='\t')
 
 initDMem()
