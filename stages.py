@@ -155,11 +155,15 @@ def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
     wd = rdData2
     if (cMemRd):
         rData = 0
+        # piecing together the 32-bit integer using the different
+        # byte-wide values at each address
         for i in range(4):
             rData += (dMem[address+i] << (24-8*(i)))
         wData = rData if cMemReg else rdData2
     else:
         if (cMemWr):
+            # splitting the 32-bit integer into byte-wide values
+            # and storing them at each address
             for i in range(4):
                 dMem[address+i] = (rData << (8*i)) >> 24
         wData = rdData2
@@ -175,11 +179,14 @@ def writeback(wData, wReg, cRegWr):
 
 ##### testing
 
+# function to print the data memory (by word, not by bytes)
 def printDMem():
     for k in dMem.keys():
         if (k%4 == 0):
             address = hex(k)
             data = 0
+            # piecing together the 32-bit integer using the different
+            # byte-wide values at each address
             for i in range(4):
                 data += (dMem[k+i] << (24-8*(i)))
             print(address, data, sep='\t')
