@@ -6,6 +6,8 @@ iMem = {}
 dMem = {}
 # program counter
 pc = 0
+# hi, lo registers (depends on whether we're implementing mult and div)
+hi, lo = 0, 0
 
 ##### initializations
 
@@ -14,16 +16,16 @@ def initReg():
         reg.append(0)
 
 def initIMem():
-    # instruction memory starts at location 0x0
-    i = 0
+    # instruction memory starts at location 0x04000000
+    i = 0x04000000
     with open('bincode', 'r') as f:
         for line in f.readlines():
             iMem[i] = int(line, 2)
             i += 4
 
 def initDMem():
-    # data memory starts at location 0x90000000
-    i = 0x90000000
+    # data memory starts at location 0x10000000
+    i = 0x10000000
     with open('bindata', 'r') as f:
         for line in f.readlines():
             # for byte addressibility
@@ -115,7 +117,13 @@ def decode(instr, cRegDst):
     # rdReg3 = instr[15:11]
     rdReg3 = (instr << 16) >> 27
     # immed = instr[15:0]
+    # however, immediate must be sign-extended
     immed = (instr << 16) >> 16
+    # in the event that the leading bit of the immediate is 1,
+    # the immediate has a sign extension with 1s padded to the 
+    # left instead of 0s
+    if ((immed >> 15) == 1):
+        immed = 0x10000-immed
     # func = instr[5:0]
     func = (instr << 26) >> 26
     wReg = rdReg3 if cRegDst else rdReg2
