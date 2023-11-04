@@ -40,7 +40,12 @@ def initDMem():
 def controlUnit(instr):
     # opcode is first 6 bits of instruction
     opcode = instr >> 26
-    cRegDst = int(opcode == 0)
+    # function is last 6 bits of instruction
+    func = instr << 26 >> 26
+    cRegDst1 = int(func == 8 or func == 16 or func == 18)
+    cRegDst2 = int(opcode == 0)
+    cRegDst2 = 0 if cRegDst1 else cRegDst2
+    cRegDst = 2*cRegDst1+cRegDst2
     cAluSrc = int(opcode == 35 or opcode == 43)
     cMemReg = int(opcode != 0)
     cRegWr = int(opcode == 0 or opcode == 35)
@@ -50,8 +55,9 @@ def controlUnit(instr):
     cAluOp1 = int(opcode == 0)
     cAluOp2 = int(opcode == 4)
     cAluOp = 2*cAluOp1+cAluOp2
-    # CU returns 8 signals - of which cAluOp is 2 bits wide
-    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp
+    cHiLoWr = int(func == 24 or func == 26)
+    # CU returns 9 signals - of which cAluOp and cRegDst are 2 bits wide
+    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr
 
 def aluControlUnit(cAluOp, func):
     cAluContr = 0
@@ -67,7 +73,7 @@ def aluControlUnit(cAluOp, func):
         if (func == 36):
             cAluContr = 0
         # or
-        elif (func == 38):
+        elif (func == 37):
             cAluContr = 1
         # add
         elif (func == 32):
@@ -78,6 +84,15 @@ def aluControlUnit(cAluOp, func):
         # slt
         elif (func == 42):
             cAluContr = 4
+        # xor
+        elif (func == 38):
+            cAluContr = 5
+        # mul
+        elif (func == 24):
+            cAluContr = 6
+        # div
+        elif (func == 26):
+            cAluContr = 7
     return cAluContr
 
 def alu(val1, val2, cAluContr):
@@ -96,6 +111,15 @@ def alu(val1, val2, cAluContr):
     # slt
     elif (cAluContr == 4):
         return int(val1 < val2)
+    # xor
+    elif (cAluContr == 5):
+        return val1 ^ val2
+    # mul
+    elif (cAluContr == 6):
+        return val1 * val2
+    # div
+    elif (cAluContr == 7):
+        return (val1 % val2, val1 // val2)
 
 ##### stages
 
@@ -126,7 +150,11 @@ def decode(instr, cRegDst):
         immed = 0x10000-immed
     # func = instr[5:0]
     func = (instr << 26) >> 26
-    wReg = rdReg3 if cRegDst else rdReg2
+    wReg = rdReg3
+    if (cRegDst == 0):
+        wReg = rdReg2
+    elif (cRegDst == 2):
+        wReg = rdReg1
     rdData1 = reg[rdReg1]
     rdData2 = reg[rdReg2]
     # this stage returns the two register read data, the immediate value, 
@@ -140,6 +168,12 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     val1 = rdData1
     val2 = immed if cAluSrc else rdData2
     aluResult = alu(val1, val2, cAluContr)
+    if (type(aluResult) == 'int'):
+        aluRes1 = aluResult >> 32
+        aluRes2 = aluResult - (aluRes1 << 32)
+    else:
+        aluRes1 = aluResult[0]
+        aluRes2 = aluResult[1]
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
     if (cBranch & cZero):
@@ -147,12 +181,13 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
-    return rdData2, aluResult
+    return rdData2, aluRes1, aluRes2
 
-def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
+def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
     global dMem
-    address = aluResult
-    wd = rdData2
+    address = aluRes1
+    wData = rdData2
+    # reading
     if (cMemRd):
         rData = 0
         # piecing together the 32-bit integer using the different
@@ -160,22 +195,24 @@ def memory(rdData2, aluResult, cMemWr, cMemRd, cMemReg):
         for i in range(4):
             rData += (dMem[address+i] << (24-8*(i)))
         wData = rData if cMemReg else rdData2
-    else:
-        if (cMemWr):
-            # splitting the 32-bit integer into byte-wide values
-            # and storing them at each address
-            for i in range(4):
-                dMem[address+i] = (rData << (8*i)) >> 24
-        wData = rdData2
+    # writing
+    elif (cMemWr):
+        # splitting the 32-bit integer into byte-wide values
+        # and storing them at each address
+        for i in range(4):
+            dMem[address+i] = (rData << (8*i)) >> 24
     # this stage only returns the content to be written back into a register
     # (will be ignored by the next stage if not needed)
-    return wData
+    return wData, aluRes1, aluRes2
 
-def writeback(wData, wReg, cRegWr):
-    global reg
+def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
+    global reg, hi, lo
     if (cRegWr):
         # writes data into the register
         reg[wReg] = wData
+    if (cHiLoWr):
+        hi = aluRes1
+        lo = aluRes2
 
 ##### testing
 
@@ -190,6 +227,3 @@ def printDMem():
             for i in range(4):
                 data += (dMem[k+i] << (24-8*(i)))
             print(address, data, sep='\t')
-
-initDMem()
-printDMem()
