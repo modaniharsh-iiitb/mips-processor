@@ -78,6 +78,8 @@ translates to
 
 by taking the return address field's value (`36384`) and multiplying it by 4 (effectively left-shifting the same by 2) to get the jump address.
 
+#### Pipelining
+
 ## Implementation
 
 ### Registers
@@ -136,6 +138,8 @@ Instr   Opcode
 j       000010 (02)
 jal?    000011 (03)
 ```
+
+### Pipelining
 
 ## Running the program
 

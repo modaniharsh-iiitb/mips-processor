@@ -5,7 +5,7 @@ iMem = {}
 # data memory
 dMem = {}
 # program counter
-pc = 0
+pc = 0x04000000
 # hi, lo registers (depends on whether we're implementing mult and div)
 hi, lo = 0, 0
 
@@ -38,17 +38,18 @@ def initDMem():
 ##### units
 
 def controlUnit(instr):
+    i = bin(instr)[2:].zfill(32)
     # opcode is first 6 bits of instruction
-    opcode = instr >> 26
+    opcode = int(i[0:6], 2)
     # function is last 6 bits of instruction
-    func = instr << 26 >> 26
+    func = int(i[26:], 2)
     cRegDst1 = int(func == 8 or func == 16 or func == 18)
     cRegDst2 = int(opcode == 0)
     cRegDst2 = 0 if cRegDst1 else cRegDst2
     cRegDst = 2*cRegDst1+cRegDst2
-    cAluSrc = int(opcode == 35 or opcode == 43)
-    cMemReg = int(opcode != 0)
-    cRegWr = int(opcode == 0 or opcode == 35)
+    cAluSrc = int(opcode != 0)
+    cMemReg = int(opcode == 35)
+    cRegWr = int(opcode != 43)
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
     cBranch = int(opcode == 4)
@@ -68,7 +69,7 @@ def aluControlUnit(cAluOp, func):
     elif (cAluOp == 1):
         cAluContr = 3
     # r-format instruction - evaluates cAluContr using func
-    else:
+    elif (cAluOp == 2):
         # and
         if (func == 36):
             cAluContr = 0
@@ -119,7 +120,7 @@ def alu(val1, val2, cAluContr):
         return val1 * val2
     # div
     elif (cAluContr == 7):
-        return (val1 % val2, val1 // val2)
+        return (val1 % val2) << 32 + (val1 // val2)
 
 ##### stages
 
@@ -127,29 +128,32 @@ def fetch():
     global pc, iMem
     # the instruction to be executed
     instr = iMem[pc]
+    # program counter incremented
+    pc += 4
     # this stage returns the instruction
     return instr
 
 def decode(instr, cRegDst):
+    i = bin(instr)[2:].zfill(32)
     global reg
     # opcode = instr[31:26]
-    opcode = instr >> 26
+    opcode = int(i[0:6], 2)
     # rdReg1 = instr[25:21]
-    rdReg1 = (instr << 6) >> 27
+    rdReg1 = int(i[6:11], 2)
     # rdReg2 = instr[20:16]
-    rdReg2 = (instr << 11) >> 27
+    rdReg2 = int(i[11:16], 2)
     # rdReg3 = instr[15:11]
-    rdReg3 = (instr << 16) >> 27
+    rdReg3 = int(i[16:21], 2)
     # immed = instr[15:0]
     # however, immediate must be sign-extended
-    immed = (instr << 16) >> 16
+    immed = int(i[16:], 2)
     # in the event that the leading bit of the immediate is 1,
     # the immediate has a sign extension with 1s padded to the 
     # left instead of 0s
     if ((immed >> 15) == 1):
         immed = 0x10000-immed
     # func = instr[5:0]
-    func = (instr << 26) >> 26
+    func = int(i[26:], 2)
     wReg = rdReg3
     if (cRegDst == 0):
         wReg = rdReg2
@@ -168,12 +172,8 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     val1 = rdData1
     val2 = immed if cAluSrc else rdData2
     aluResult = alu(val1, val2, cAluContr)
-    if (type(aluResult) == 'int'):
-        aluRes1 = aluResult >> 32
-        aluRes2 = aluResult - (aluRes1 << 32)
-    else:
-        aluRes1 = aluResult[0]
-        aluRes2 = aluResult[1]
+    aluRes1 = aluResult >> 32
+    aluRes2 = aluResult - (aluRes1 << 32)
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
     if (cBranch & cZero):
@@ -185,8 +185,8 @@ def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
 
 def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
     global dMem
-    address = aluRes1
-    wData = rdData2
+    address = aluRes2
+    wData = aluRes2
     # reading
     if (cMemRd):
         rData = 0
@@ -194,7 +194,7 @@ def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
         # byte-wide values at each address
         for i in range(4):
             rData += (dMem[address+i] << (24-8*(i)))
-        wData = rData if cMemReg else rdData2
+        wData = rData if cMemReg else aluRes2
     # writing
     elif (cMemWr):
         # splitting the 32-bit integer into byte-wide values
@@ -211,6 +211,7 @@ def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
         # writes data into the register
         reg[wReg] = wData
     if (cHiLoWr):
+        # writes data into hi and lo
         hi = aluRes1
         lo = aluRes2
 
