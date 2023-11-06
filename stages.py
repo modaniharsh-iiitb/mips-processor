@@ -49,10 +49,7 @@ def controlUnit(instr):
     opcode = int(i[0:6], 2)
     # function is last 6 bits of instruction
     func = int(i[26:], 2)
-    cRegDst1 = int(opcode in [2, 3])
-    cRegDst2 = int(opcode == 0)
-    cRegDst2 = 0 if cRegDst1 else cRegDst2
-    cRegDst = 2*cRegDst1+cRegDst2
+    cRegDst = int(opcode == 0)
     cAluSrc = int(opcode not in [0, 4])
     cMemReg = int(opcode == 35)
     cRegWr = int(opcode != 43 and func not in [24, 26])
@@ -63,7 +60,7 @@ def controlUnit(instr):
     cHiLoWr = int(func in [24, 26])
     cLoRd = int(func == 18)
     cHiRd = int(func == 16)
-    # CU returns 11 signals - of which cRegDst is 2 bits wide
+    # CU returns 11 signals
     return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd
 
 def aluControlUnit(cAluOp, opcode, func):

@@ -78,7 +78,7 @@ translates to
 
 by taking the return address field's value (`36384`) and multiplying it by 4 (effectively left-shifting the same by 2) to get the jump address.
 
-#### Pipelining
+### Pipelining
 
 ## Implementation
 
@@ -140,6 +140,30 @@ jal?    000011 (03)
 ```
 
 ### Pipelining
+
+### Variables and their meaning
+
+#### Global variables
+
+- `reg`: the register file (list of 32 integers, `reg[i]` represents the value stored in the `$i` register)
+- `iMem`: the instruction memory (dictionary, with the key being the address and the corresponsing value being the 32-bit instruction held at that address). It follows MIPS conventions but is not byte-addressible.
+- `dMem`: the data memory (similar to above, but the corresponding value to each address is a byte instead of a word). It is byte-addressible.
+- `pc`: the program counter (integer). Starts at the base instruction memory location, i.e. `0x04000000`.
+- `hi`, `lo`: registers corresponding to `hi` and `lo` as in MIPS, used in multiplication and division operations (integers).
+
+#### Control signals
+
+- `cRegDst`: Signal to select the destination register (i.e., the register to be written into). In case of R-type instructions, the destination register is `rd` and `cRegDst = 1`. Otherwise, the destination register is either irrelevant or `rt` and `cRegDst = 0`.
+- `cAluSrc`: Signal to select the source of the second input value to the ALU. In case of R-type instructions, the source is the value of `rt` and `cAluSrc = 0`. In all other instructions, the source is the immediate value `immed` and `cAluSrc = 1`.
+- `cMemReg`: Signal to select the source of the data to be written back into the register file. In case of an `lw` instruction, the source is memory and `cMemReg = 1`, otherwise the source is the ALU output and `cMemReg = 0`.
+- `cRegWr`: Signal to determine whether any register needs to be written back into. In case of instructions that have an explicit destination register (e.g. `addi`), `cRegWr = 1`, and in case of instructions that do not have a destination register (e.g. `beq`), `cRegWr = 0`.
+- `cMemRd`: Signal to determine whether data is being read from the memory. In case of `lw`, `cMemRd = 1`, otherwise `cMemRd = 0`.
+- `cMemWr`: Signal to determine whether data is being written to the memory. In case of `sw`, `cMemWr = 1`, otherwise `cMemWr = 0`.
+- `cBranch`: Signal to determine whether the program counter should source from the branch adder or itself. In case of `beq` and `bne`, `cBranch = 1`, otherwise `cBranch = 0`.
+- `cAluOp`: Signal to determine the source using which the ALU Control Unit should determine the `cAluCont` bits. If the instruction is I-format or J-format, `cAluOp = 0`, otherwise `cAluOp = 0`.
+- `cHiLoWr`: Signal to determine whether `hi` and `lo` are being written into. In case of `mult` and `div` instructions, `cHiLoWr = 1`, otherwise `cHiLoWr = 0`.
+- `cLoRd`: Signal to determine whether `lo` is being read from. In case of `mflo`, `cLoRd = 1`, otherwise `cLoRd = 0`.
+- `cHiRd`: Signal to determine whether `hi` is being read from. In case of `mfhi`, `cHiRd = 1`, otherwise `cHiRd = 0`.
 
 ## Running the program
 
