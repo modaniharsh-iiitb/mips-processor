@@ -9,6 +9,12 @@ pc = 0x04000000
 # hi, lo registers (depends on whether we're implementing mult and div)
 hi, lo = 0, 0
 
+##### getters
+
+def getPC():
+    global pc
+    return pc
+
 ##### initializations
 
 def initReg():
@@ -47,7 +53,7 @@ def controlUnit(instr):
     cRegDst2 = int(opcode == 0)
     cRegDst2 = 0 if cRegDst1 else cRegDst2
     cRegDst = 2*cRegDst1+cRegDst2
-    cAluSrc = int(opcode != 0)
+    cAluSrc = int(opcode not in [0, 4])
     cMemReg = int(opcode == 35)
     cRegWr = int(opcode != 43 and func not in [24, 26])
     cMemRd = int(opcode == 35)
@@ -171,7 +177,7 @@ def decode(instr, cRegDst, cLoRd, cHiRd):
     # the immediate has a sign extension with 1s padded to the 
     # left instead of 0s
     if ((immed >> 15) == 1):
-        immed = 0x10000-immed
+        immed = -(0x10000-immed)
     # func = instr[5:0]
     func = int(i[26:], 2)
     wReg = rdReg3
@@ -202,33 +208,32 @@ def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch, cLo
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
-    if (cBranch & cZero):
+    if (cBranch and cZero):
+        print('My manz looped')
         pc = bTarget
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
     return rdData2, aluRes1, aluRes2
 
-def memory(aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
+def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
     global dMem
+    # forming the address out of aluRes2
     address = aluRes2
     wData = aluRes2
-    # reading
+    # reading from memory
     if (cMemRd):
         rData = 0
-        # piecing together the 32-bit integer using the different
-        # byte-wide values at each address
         for i in range(4):
-            rData += (dMem[address+i] << (24-8*(i)))
-        wData = rData if cMemReg else aluRes2
-    # writing
+            rData += (dMem[address+i] << (24-8*i))
+        wData = rData if cMemReg else rdData2
+    # writing to memory
     elif (cMemWr):
-        # splitting the 32-bit integer into byte-wide values
-        # and storing them at each address
+        wData = rdData2
+        wDStr = bin(wData)[2:].zfill(32)
         for i in range(4):
-            dMem[address+i] = (rData << (8*i)) >> 24
-    # this stage only returns the content to be written back into a register
-    # (will be ignored by the next stage if not needed)
+            dMem[address+i] = int(wDStr[8*i:8*i+8])
+
     return wData, aluRes1, aluRes2
 
 def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):

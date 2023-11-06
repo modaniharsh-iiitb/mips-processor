@@ -12,7 +12,10 @@ clock = clk()
 for i in iMem:
     print(hex(i), iMem[i], sep='\t')
 
-for i in iMem:
+while True:
+    if (getPC() not in iMem.keys()):
+        break
+    print(hex(getPC())[2:])
     # stage: instruction fetch
     clock.cycle()
     # next instruction
