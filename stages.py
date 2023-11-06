@@ -43,20 +43,22 @@ def controlUnit(instr):
     opcode = int(i[0:6], 2)
     # function is last 6 bits of instruction
     func = int(i[26:], 2)
-    cRegDst1 = int(func == 8 or func == 16 or func == 18)
+    cRegDst1 = int(opcode in [2, 3])
     cRegDst2 = int(opcode == 0)
     cRegDst2 = 0 if cRegDst1 else cRegDst2
     cRegDst = 2*cRegDst1+cRegDst2
     cAluSrc = int(opcode != 0)
     cMemReg = int(opcode == 35)
-    cRegWr = int(opcode != 43)
+    cRegWr = int(opcode != 43 and func not in [24, 26])
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
     cBranch = int(opcode == 4)
     cAluOp = int(opcode == 0)
-    cHiLoWr = int(func == 24 or func == 26)
-    # CU returns 9 signals - of which cRegDst is 2 bits wide
-    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr
+    cHiLoWr = int(func in [24, 26])
+    cLoRd = int(func == 18)
+    cHiRd = int(func == 16)
+    # CU returns 11 signals - of which cRegDst is 2 bits wide
+    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd
 
 def aluControlUnit(cAluOp, opcode, func):
     cAluCont = 0
@@ -151,7 +153,7 @@ def fetch():
     # this stage returns the instruction
     return instr
 
-def decode(instr, cRegDst):
+def decode(instr, cRegDst, cLoRd, cHiRd):
     i = bin(instr)[2:].zfill(32)
     global reg
     # opcode = instr[31:26]
@@ -179,12 +181,16 @@ def decode(instr, cRegDst):
         wReg = rdReg1
     rdData1 = reg[rdReg1]
     rdData2 = reg[rdReg2]
+    if (cLoRd):
+        rdData2 = lo
+    elif (cHiRd):
+        rdData2 = hi
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
     # by the next stage if not needed)
     return rdData1, rdData2, immed, opcode, func, wReg
 
-def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch):
+def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
     cAluCont = aluControlUnit(cAluOp, opcode, func)
     val1 = rdData1
@@ -192,6 +198,8 @@ def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch):
     aluResult = alu(val1, val2, cAluCont)
     aluRes1 = aluResult >> 32
     aluRes2 = aluResult - (aluRes1 << 32)
+    if (cLoRd or cHiRd):
+        aluRes2 = rdData2
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
     if (cBranch & cZero):
@@ -201,7 +209,7 @@ def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch):
     # the branch target
     return rdData2, aluRes1, aluRes2
 
-def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
+def memory(aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
     global dMem
     address = aluRes2
     wData = aluRes2

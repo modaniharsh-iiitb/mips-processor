@@ -22,22 +22,22 @@ for i in iMem:
     # stage: instruction decode
     clock.cycle()
     # control signals
-    cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr = controlUnit(instr)
-    print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr)
+    cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd = controlUnit(instr)
+    print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd)
     # decoded registers and data
-    rdData1, rdData2, immed, opcode, func, wReg = decode(instr, cRegDst)
-    print(rdData1, rdData2, immed, func, wReg)
+    rdData1, rdData2, immed, opcode, func, wReg = decode(instr, cRegDst, cLoRd, cHiRd)
+    print(rdData1, rdData2, immed, opcode, func, wReg)
 
     # stage: ALU execute
     clock.cycle()
     # values obtained from ALU operations (also takes care of branching)
-    rdData2, aluRes1, aluRes2 = execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch)
+    rdData2, aluRes1, aluRes2 = execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
     print(rdData2, aluRes1, aluRes2)
 
     # stage: memory access
     clock.cycle()
     # values read or written to memory
-    wData, aluRes1, aluRes2 = memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg)
+    wData, aluRes1, aluRes2 = memory(aluRes1, aluRes2, cMemWr, cMemRd, cMemReg)
     print(wData, aluRes1, aluRes2)
 
     # stage: register writeback
