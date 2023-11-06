@@ -53,74 +53,92 @@ def controlUnit(instr):
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
     cBranch = int(opcode == 4)
-    cAluOp1 = int(opcode == 0)
-    cAluOp2 = int(opcode == 4)
-    cAluOp = 2*cAluOp1+cAluOp2
+    cAluOp = int(opcode == 0)
     cHiLoWr = int(func == 24 or func == 26)
-    # CU returns 9 signals - of which cAluOp and cRegDst are 2 bits wide
+    # CU returns 9 signals - of which cRegDst is 2 bits wide
     return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr
 
-def aluControlUnit(cAluOp, func):
+def aluControlUnit(cAluOp, opcode, func):
     cAluCont = 0
-    # lw or sw - uses addition only
+    # i-format or j-format instruction - uses opcode to determine cAluCont
     if (cAluOp == 0):
-        cAluCont = 2
-    # branch - uses subtraction only
-    elif (cAluOp == 1):
-        cAluCont = 3
-    # r-format instruction - evaluates cAluCont using func
-    elif (cAluOp == 2):
-        # and
-        if (func == 36):
+        # addi, lw or sw - use addition
+        if (opcode in [8, 35, 43]):
             cAluCont = 0
-        # or
-        elif (func == 37):
+        # beq and bne - use subtraction
+        elif (opcode in [4, 5]):
             cAluCont = 1
+        # lui - uses left shifting by 16
+        elif (opcode == 15):
+            cAluCont = 9
+        # j and jal - use left shifting by 2
+        elif (opcode in [2, 3]):
+            cAluCont = 10
+    # r-format instruction - evaluates cAluCont using func
+    else:
         # add
-        elif (func == 32):
-            cAluCont = 2
+        if (func == 32):
+            cAluCont = 0
         # sub
         elif (func == 34):
+            cAluCont = 1
+        # and
+        elif (func == 36):
+            cAluCont = 2
+        # or
+        elif (func == 37):
             cAluCont = 3
-        # slt
-        elif (func == 42):
-            cAluCont = 4
         # xor
         elif (func == 38):
+            cAluCont = 4
+        # nor
+        elif (func == 39):
             cAluCont = 5
-        # mul
-        elif (func == 24):
+        # slt
+        elif (func == 42):
             cAluCont = 6
+        # mult
+        elif (func == 24):
+            cAluCont = 7
         # div
         elif (func == 26):
-            cAluCont = 7
+            cAluCont = 8
     return cAluCont
 
 def alu(val1, val2, cAluCont):
-    # and
-    if (cAluCont == 0):
-        return val1 & val2
-    # or
-    elif (cAluCont == 1):
-        return val1 | val2
     # add
-    elif (cAluCont == 2):
+    if (cAluCont == 0):
         return val1 + val2
     # sub
-    elif (cAluCont == 3):
+    elif (cAluCont == 1):
         return val1 - val2
-    # slt
-    elif (cAluCont == 4):
-        return int(val1 < val2)
+    # and
+    elif (cAluCont == 2):
+        return val1 & val2
+    # or
+    elif (cAluCont == 3):
+        return val1 | val2
     # xor
-    elif (cAluCont == 5):
+    elif (cAluCont == 4):
         return val1 ^ val2
-    # mul
+    # nor
+    elif (cAluCont == 5):
+        return ~(val1 | val2)
+    # slt
     elif (cAluCont == 6):
+        return int(val1 < val2)
+    # mult
+    elif (cAluCont == 7):
         return val1 * val2
     # div
-    elif (cAluCont == 7):
+    elif (cAluCont == 8):
         return (val1 % val2) << 32 + (val1 // val2)
+    # sll by 16
+    elif (cAluCont == 9):
+        return val1 << 16
+    # sll by 2
+    elif (cAluCont == 10):
+        return val1 << 2
 
 ##### stages
 
@@ -164,11 +182,11 @@ def decode(instr, cRegDst):
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
     # by the next stage if not needed)
-    return rdData1, rdData2, immed, func, wReg
+    return rdData1, rdData2, immed, opcode, func, wReg
 
-def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
+def execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch):
     global pc
-    cAluCont = aluControlUnit(cAluOp, func)
+    cAluCont = aluControlUnit(cAluOp, opcode, func)
     val1 = rdData1
     val2 = immed if cAluSrc else rdData2
     aluResult = alu(val1, val2, cAluCont)

@@ -25,13 +25,13 @@ for i in iMem:
     cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr = controlUnit(instr)
     print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr)
     # decoded registers and data
-    rdData1, rdData2, immed, func, wReg = decode(instr, cRegDst)
+    rdData1, rdData2, immed, opcode, func, wReg = decode(instr, cRegDst)
     print(rdData1, rdData2, immed, func, wReg)
 
     # stage: ALU execute
     clock.cycle()
     # values obtained from ALU operations (also takes care of branching)
-    rdData2, aluRes1, aluRes2 = execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch)
+    rdData2, aluRes1, aluRes2 = execute(rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch)
     print(rdData2, aluRes1, aluRes2)
 
     # stage: memory access
