@@ -7,6 +7,8 @@ initReg()
 initIMem()
 initDMem()
 
+print(dMem)
+
 clock = clk()
 
 for i in iMem:
@@ -40,7 +42,7 @@ while True:
     # stage: memory access
     clock.cycle()
     # values read or written to memory
-    wData, aluRes1, aluRes2 = memory(aluRes1, aluRes2, cMemWr, cMemRd, cMemReg)
+    wData, aluRes1, aluRes2 = memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg)
     print(wData, aluRes1, aluRes2)
 
     # stage: register writeback
@@ -53,8 +55,11 @@ while True:
 print('Done executing')
 print('No. of cycles:', clock.noOfCycles())
 print('Value of registers:')
+print('$t0:',reg[8])
 print('$t1:',reg[9])
 print('$s0:',reg[16])
 print('$s1:',reg[17])
 print('$s2:',reg[18])
 print('$s3:',reg[19])
+
+commitToMem()

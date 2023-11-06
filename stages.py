@@ -143,10 +143,10 @@ def alu(val1, val2, cAluCont):
         return (val1 % val2) << 32 + (val1 // val2)
     # sll by 16
     elif (cAluCont == 9):
-        return val1 << 16
+        return val2 << 16
     # sll by 2
     elif (cAluCont == 10):
-        return val1 << 2
+        return val2 << 2
 
 ##### stages
 
@@ -232,7 +232,7 @@ def memory(rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg):
         wData = rdData2
         wDStr = bin(wData)[2:].zfill(32)
         for i in range(4):
-            dMem[address+i] = int(wDStr[8*i:8*i+8])
+            dMem[address+i] = int(wDStr[(8*i):(8*i+8)], 2)
 
     return wData, aluRes1, aluRes2
 
@@ -250,6 +250,7 @@ def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
 
 # function to print the data memory (by word, not by bytes)
 def printDMem():
+    global dMem
     for k in dMem.keys():
         if (k%4 == 0):
             address = hex(k)
@@ -259,3 +260,17 @@ def printDMem():
             for i in range(4):
                 data += (dMem[k+i] << (24-8*(i)))
             print(address, data, sep='\t')
+
+# function to write the data memory into the file
+def commitToMem():
+    global dMem
+    with open('bindata', 'w') as f:
+        address = 0x10000000
+        while True:
+            if (address not in dMem.keys()):
+                break
+            if (address != 0x10000000):
+                f.write('\n')
+            for i in range(4):
+                f.write(bin(dMem[address+i])[2:].zfill(8))
+            address += 4
