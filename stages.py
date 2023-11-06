@@ -61,65 +61,65 @@ def controlUnit(instr):
     return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr
 
 def aluControlUnit(cAluOp, func):
-    cAluContr = 0
+    cAluCont = 0
     # lw or sw - uses addition only
     if (cAluOp == 0):
-        cAluContr = 2
+        cAluCont = 2
     # branch - uses subtraction only
     elif (cAluOp == 1):
-        cAluContr = 3
-    # r-format instruction - evaluates cAluContr using func
+        cAluCont = 3
+    # r-format instruction - evaluates cAluCont using func
     elif (cAluOp == 2):
         # and
         if (func == 36):
-            cAluContr = 0
+            cAluCont = 0
         # or
         elif (func == 37):
-            cAluContr = 1
+            cAluCont = 1
         # add
         elif (func == 32):
-            cAluContr = 2
+            cAluCont = 2
         # sub
         elif (func == 34):
-            cAluContr = 3
+            cAluCont = 3
         # slt
         elif (func == 42):
-            cAluContr = 4
+            cAluCont = 4
         # xor
         elif (func == 38):
-            cAluContr = 5
+            cAluCont = 5
         # mul
         elif (func == 24):
-            cAluContr = 6
+            cAluCont = 6
         # div
         elif (func == 26):
-            cAluContr = 7
-    return cAluContr
+            cAluCont = 7
+    return cAluCont
 
-def alu(val1, val2, cAluContr):
+def alu(val1, val2, cAluCont):
     # and
-    if (cAluContr == 0):
+    if (cAluCont == 0):
         return val1 & val2
     # or
-    elif (cAluContr == 1):
+    elif (cAluCont == 1):
         return val1 | val2
     # add
-    elif (cAluContr == 2):
+    elif (cAluCont == 2):
         return val1 + val2
     # sub
-    elif (cAluContr == 3):
+    elif (cAluCont == 3):
         return val1 - val2
     # slt
-    elif (cAluContr == 4):
+    elif (cAluCont == 4):
         return int(val1 < val2)
     # xor
-    elif (cAluContr == 5):
+    elif (cAluCont == 5):
         return val1 ^ val2
     # mul
-    elif (cAluContr == 6):
+    elif (cAluCont == 6):
         return val1 * val2
     # div
-    elif (cAluContr == 7):
+    elif (cAluCont == 7):
         return (val1 % val2) << 32 + (val1 // val2)
 
 ##### stages
@@ -168,10 +168,10 @@ def decode(instr, cRegDst):
 
 def execute(rdData1, rdData2, immed, func, cAluOp, cAluSrc, cBranch):
     global pc
-    cAluContr = aluControlUnit(cAluOp, func)
+    cAluCont = aluControlUnit(cAluOp, func)
     val1 = rdData1
     val2 = immed if cAluSrc else rdData2
-    aluResult = alu(val1, val2, cAluContr)
+    aluResult = alu(val1, val2, cAluCont)
     aluRes1 = aluResult >> 32
     aluRes2 = aluResult - (aluRes1 << 32)
     cZero = int(aluResult == 0)
