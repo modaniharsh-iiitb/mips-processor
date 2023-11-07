@@ -7,7 +7,8 @@ initReg()
 initIMem()
 initDMem()
 
-clock = clk()
+# clock of 950 microsecond time period
+clock = clk(0.95)
 i = 1
 
 while True:
@@ -49,6 +50,7 @@ while True:
 
 print('Done executing')
 print('No. of cycles:', clock.noOfCycles())
+print('Time taken:',clock.getTimeTaken())
 print('Value of registers:')
 print()
 printReg()
