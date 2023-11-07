@@ -156,6 +156,7 @@ def alu(val1, val2, cAluCont):
 
 def fetch():
     global pc, iMem
+    
     # the instruction to be executed
     instr = iMem[pc]
     # program counter incremented
@@ -163,9 +164,12 @@ def fetch():
     # this stage returns the instruction
     return instr
 
-def decode(instr, cRegDst, cLoRd, cHiRd, cJr, cLink):
+def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
+    global reg, pc
+
+    # instruction in binary string format - useful for 
+    # extracting components
     i = bin(instr)[2:].zfill(32)
-    global reg
     # opcode = instr[31:26]
     opcode = int(i[0:6], 2)
     # rdReg1 = instr[25:21]
@@ -208,13 +212,21 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJr, cLink):
         rdData2 = lo
     elif (cHiRd):
         rdData2 = hi
+    # jumping is evaluated in the decode stage for the sake of 
+    # better pipelining
+    pcTemp = 0
+    if (cJmp):
+        pcTemp = pc
+        pc = jTarget
+
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
     # by the next stage if not needed)
-    return jTarget, rdData1, rdData2, immed, opcode, func, wReg
+    return pcTemp, rdData1, rdData2, immed, opcode, func, wReg
 
-def execute(jTarget, rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd):
+def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
+
     cAluCont = aluControlUnit(cAluOp, opcode, func)
     val1 = rdData1
     val2 = immed if cAluSrc else rdData2
@@ -230,16 +242,16 @@ def execute(jTarget, rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBr
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
     bTarget = pc+(immed << 2)
-    if (cBranch and cZero):
+    if (cBranch and (cZero if (opcode == 2) else int(not cZero))):
         pc = bTarget
-        print('Branch to',pc)
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
-    return jTarget, rdData2, aluRes1, aluRes2
+    return pcTemp, rdData2, aluRes1, aluRes2, wReg
 
-def memory(jTarget, rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg, cJmp):
+def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg):
     global dMem, pc
+
     # forming the address out of aluRes2
     address = aluRes2
     wData = aluRes2
@@ -251,25 +263,19 @@ def memory(jTarget, rdData2, aluRes1, aluRes2, cMemWr, cMemRd, cMemReg, cJmp):
         wData = rData if cMemReg else rdData2
     # writing to memory
     elif (cMemWr):
-        print('Store')
         wData = rdData2
         wDStr = bin(wData)[2:].zfill(32)
         for i in range(4):
             dMem[address+i] = int(wDStr[(8*i):(8*i+8)], 2)
     
-    pcTemp = 0
-    if (cJmp):
-        pcTemp = pc
-        pc = jTarget
-        print('Jump to',pc)
-
-    return wData, aluRes1, aluRes2, pcTemp
+    
+    return wData, aluRes1, aluRes2, pcTemp, wReg
 
 def writeback(wData, aluRes1, aluRes2, pcTemp, wReg, cRegWr, cHiLoWr, cLink):
     global reg, hi, lo
+
     if (cRegWr):
         # writes data into the register
-        print('Reg',wReg,'written into')
         reg[wReg] = wData
     if (cHiLoWr):
         # writes data into hi and lo
@@ -277,13 +283,13 @@ def writeback(wData, aluRes1, aluRes2, pcTemp, wReg, cRegWr, cHiLoWr, cLink):
         lo = aluRes2
     if (cLink):
         reg[31] = pcTemp
-        print('Reg 31 written into')
 
 ##### utility
 
 # function to print the data memory (by word, not by bytes)
 def printDMem():
     global dMem
+
     for k in dMem.keys():
         if (k%4 == 0):
             address = hex(k)
@@ -296,12 +302,14 @@ def printDMem():
     
 def printReg():
     global reg
+
     for i in range(32):
         print(f'${i}:\t{reg[i]}')
 
 # function to write the data memory into the file
 def commitToMem():
     global dMem
+
     maxAddress = max(list(dMem.keys()))
     with open('bindata', 'w') as f:
         address = 0x10000000
