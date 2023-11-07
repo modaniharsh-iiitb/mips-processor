@@ -7,7 +7,8 @@ initReg()
 initIMem()
 initDMem()
 
-clock = clk()
+# clock of 250 microsecond time period
+clock = clk(0.25)
 
 #queue for instructions(with max length 5)
 
