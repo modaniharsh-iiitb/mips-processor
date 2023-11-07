@@ -104,10 +104,10 @@ The following instructions, as explained briefly earlier, can be simulated by th
 Instr   Function
 -------------------
 jr?     001000 (08)
-mfhi?	010000 (16)
-mflo?	010010 (18)
-mult?	011000 (24)
-div?    011010 (26)
+mfhi	010000 (16)
+mflo	010010 (18)
+mult	011000 (24)
+div     011010 (26)
 add 	100000 (32)
 sub 	100010 (34)
 and 	100100 (36)
@@ -164,6 +164,7 @@ jal?    000011 (03)
 - `cHiLoWr`: Signal to determine whether `hi` and `lo` are being written into. In case of `mult` and `div` instructions, `cHiLoWr = 1`, otherwise `cHiLoWr = 0`.
 - `cLoRd`: Signal to determine whether `lo` is being read from. In case of `mflo`, `cLoRd = 1`, otherwise `cLoRd = 0`.
 - `cHiRd`: Signal to determine whether `hi` is being read from. In case of `mfhi`, `cHiRd = 1`, otherwise `cHiRd = 0`.
+- `cJmp`: Signal to determine whether the instruction will jump. In case of `j`, `jal` and `jr`, `cJmp = 1`, otherwise `cJmp = 0`.
 
 ## Running the program
 

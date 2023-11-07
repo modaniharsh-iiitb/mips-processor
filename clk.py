@@ -14,7 +14,7 @@ class clk:
     def cycle(self):
         # function to execute one clock cycle. it is not a realistic function,
         # but it adds a delay of one millisecond
-        time.sleep(0.001)
+        time.sleep(0.01)
         self.cycles += 1
 
     def noOfCycles(self):
