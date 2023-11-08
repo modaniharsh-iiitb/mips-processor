@@ -1,6 +1,6 @@
 # non-pipelined processor
 
-from stages import *
+from stages_op import *
 from clk import *
 
 initReg()
