@@ -255,7 +255,6 @@ def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp,
     if (cLoRd or cHiRd):
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
-    print(cZero)
     bTarget = pc+(immed << 2)
     if (cBranch and cZero):
         pc = bTarget
