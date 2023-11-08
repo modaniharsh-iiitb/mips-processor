@@ -50,7 +50,7 @@ while True:
 
 print('Done executing')
 print('No. of cycles:', clock.noOfCycles())
-print('Time taken:',clock.getTimeTaken())
+print('Time taken:',round(clock.getTimeTaken(), 2),'ms')
 print('Value of registers:')
 print()
 printReg()

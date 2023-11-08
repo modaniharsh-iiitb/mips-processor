@@ -319,7 +319,6 @@ def commitToMem():
             if (address not in dMem.keys()):
                 f.write('0'*32+'\n')
             else:
-                print(hex(address))
                 if (address != 0x10000000):
                     f.write('\n')
                 for i in range(4):
