@@ -6,7 +6,7 @@ iMem = {}
 dMem = {}
 # program counter
 pc = 0x00400000
-# hi, lo registers (depends on whether we're implementing mult and div)
+# hi, lo registers
 hi, lo = 0, 0
 
 ##### getters
@@ -52,7 +52,8 @@ def controlUnit(instr):
     cRegDst = int(opcode == 0)
     cAluSrc = int(opcode not in [0, 4])
     cMemReg = int(opcode == 35)
-    cRegWr = int(opcode not in [2, 4, 5, 43] and (func not in [24, 26] if opcode == 0 else 1))
+    cRegWr = int(opcode not in [2, 4, 5, 43] and 
+                 (func not in [24, 26] if opcode == 0 else 1))
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
     cBranch = int(opcode == 4)
@@ -64,7 +65,8 @@ def controlUnit(instr):
     cLink = int(opcode == 3)
     cJr = int(func == 8)
     # CU returns 14 signals
-    return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr
+    return (cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, 
+            cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
 
 def aluControlUnit(cAluOp, opcode, func):
     cAluCont = 0
@@ -194,12 +196,12 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     if (cRegDst):
         wReg = rdReg3
     rdData1 = reg[rdReg1]
+    rdData2 = reg[rdReg2]
     # in the event that the leading bit of the data is 1,
     # the immediate has a sign extension with 1s padded to the 
     # left instead of 0s
     if (rdData1 > (1 << 31)):
         rdData1 = -(0x10000000-rdData1)
-    rdData2 = reg[rdReg2]
     if (rdData2 > (1 << 31)):
         rdData2 = -(0x10000000-rdData2)
     if (cJr):
@@ -224,20 +226,28 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     # by the next stage if not needed)
     return pcTemp, rdData1, rdData2, immed, opcode, func, wReg
 
-def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd):
+def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, 
+            cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
 
     cAluCont = aluControlUnit(cAluOp, opcode, func)
+    # 1st value of ALU operations always comes from the rs register
     val1 = rdData1
+    # 2nd value of ALU operations is either the immediate for I-format 
+    # instructions or the rt register value for R-format instructions
     val2 = immed if cAluSrc else rdData2
     aluResult = alu(val1, val2, cAluCont)
     if (aluResult > 0):
+        # split into two results, because mult and div give longer than
+        # 32-bit answers
         aluRes1 = aluResult >> 32
         aluRes2 = aluResult - (aluRes1 << 32)
     else:
         aluRes1 = 0
         aluRes2 = aluResult
 
+    # if the instruction is mflo or mfhi, then the result is just what is
+    # read from HI or LO respectively
     if (cLoRd or cHiRd):
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
@@ -300,6 +310,7 @@ def printDMem():
                 data += (dMem[k+i] << (24-8*(i)))
             print(address, data, sep='\t')
     
+# function to print the register values
 def printReg():
     global reg
 
