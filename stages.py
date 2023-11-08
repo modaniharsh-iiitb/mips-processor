@@ -50,13 +50,13 @@ def controlUnit(instr):
     # function is last 6 bits of instruction
     func = int(i[26:], 2)
     cRegDst = int(opcode == 0)
-    cAluSrc = int(opcode not in [0, 4])
+    cAluSrc = int(opcode not in [0, 4, 5])
     cMemReg = int(opcode == 35)
     cRegWr = int(opcode not in [2, 4, 5, 43] and 
                  (func not in [24, 26] if opcode == 0 else 1))
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
-    cBranch = int(opcode == 4)
+    cBranch = int(opcode in [4, 5])
     cAluOp = int(opcode == 0)
     cHiLoWr = int(func in [24, 26])
     cLoRd = int(func == 18)
@@ -68,7 +68,7 @@ def controlUnit(instr):
     return (cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, 
             cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
 
-def aluControlUnit(cAluOp, opcode, func):
+def aluControlUnit(opcode, func, cAluOp):
     cAluCont = 0
     # i-format or j-format instruction - uses opcode to determine cAluCont
     if (cAluOp == 0):
@@ -157,14 +157,18 @@ def alu(val1, val2, cAluCont):
 ##### stages
 
 def fetch():
+    #resolve comments
     global pc, iMem
     
     # the instruction to be executed
-    instr = iMem[pc]
+    if (pc in iMem.keys()):
+        instr = iMem[pc]
+        pc += 4
+        return instr
+    else:
+        return 0
     # program counter incremented
-    pc += 4
     # this stage returns the instruction
-    return instr
 
 def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     global reg, pc
@@ -230,7 +234,7 @@ def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp,
             cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
 
-    cAluCont = aluControlUnit(cAluOp, opcode, func)
+    cAluCont = aluControlUnit(opcode, func, cAluOp)
     # 1st value of ALU operations always comes from the rs register
     val1 = rdData1
     # 2nd value of ALU operations is either the immediate for I-format 
@@ -251,20 +255,21 @@ def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp,
     if (cLoRd or cHiRd):
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
+    print(cZero)
     bTarget = pc+(immed << 2)
-    if (cBranch and (cZero if (opcode == 2) else int(not cZero))):
+    if (cBranch and cZero):
         pc = bTarget
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
     return pcTemp, rdData2, aluRes1, aluRes2, wReg
 
-def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg):
+def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink):
     global dMem, pc
 
     # forming the address out of aluRes2
     address = aluRes2
-    wData = aluRes2
+    wData = aluRes2 if (not cLink) else pcTemp
     # reading from memory
     if (cMemRd):
         rData = 0
@@ -279,9 +284,9 @@ def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg):
             dMem[address+i] = int(wDStr[(8*i):(8*i+8)], 2)
     
     
-    return wData, aluRes1, aluRes2, pcTemp, wReg
+    return wData, aluRes1, aluRes2, wReg
 
-def writeback(wData, aluRes1, aluRes2, pcTemp, wReg, cRegWr, cHiLoWr, cLink):
+def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
     global reg, hi, lo
 
     if (cRegWr):
@@ -291,8 +296,6 @@ def writeback(wData, aluRes1, aluRes2, pcTemp, wReg, cRegWr, cHiLoWr, cLink):
         # writes data into hi and lo
         hi = aluRes1
         lo = aluRes2
-    if (cLink):
-        reg[31] = pcTemp
 
 ##### utility
 

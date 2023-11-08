@@ -1,6 +1,5 @@
 # an object used to emulate the clock on a processor
 class clk:
-
     def __init__(self, cycleLength):
         # variable that keeps track of the number of cycles this 
         # clock has emulated - this will be used later in comparing

@@ -10,41 +10,51 @@ initDMem()
 # clock of 250 microsecond time period
 clock = clk(0.25)
 
-#queue for instructions(with max length 5)
+# queue for instructions(with max length 5)
+
+# IF/ID pipeline register
+IFIDReg = {'valid' : 0} # has only instr
+
+# ID/EX pipeline register
+IDEXReg = {'valid' : 0} # has cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
+
+# EX/MEM pipeline register
+EXMEMReg = {'valid' : 0}
+
+# MEM/WB pipeline register
+MEMWBReg = {'valid' : 0}
 
 class instrBuffer:
     def __init__(self):
-        self.q = [0, 0, 0, 0, 0]
-    def add(self, stage):
-        self.q.pop()
-        self.q.insert(0, stage)
-    def bufferDecode(self, IFIDReg):
-        instr = self.q[1]
-        if instr != 0:
-            # stage: instruction decode
-            # control signals
-            cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = controlUnit(instr)
-            # decoded registers and data
-            jTarget, rdData1, rdData2, immed, opcode, func, wReg = decode(instr, cRegDst, cLoRd, cHiRd, cJr, cLink)
-            return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
-    def bufferExecute(self, IDEXReg):
-        instr = self.q[2]
-        if instr != 0:
-            cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg = IDEXReg
-            jTarget, rdData2, aluRes1, aluRes2 = execute(jTarget, rdData1, rdData2, immed, opcode, func, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
-            return cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
+        pass
 
-#IF/ID pipeline register
-IFIDReg = [] #has only instr
-
-#ID/EX pipeline register
-IDEXReg = [] #has cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
-
-#EX/MEM pipeline register
-EXMEMReg = []
-
-#MEM/WB pipeline register
-MEMWBReg = []
+    def bufferFetch(self):
+        global IFIDReg
+        # fetch new instruction
+        instr = fetch()
+        # put fetch result in IFIDReg
+        content = [instr]
+        IFIDReg.update({'valid' : 1, 'content' : content})
+    
+    def bufferDecode(self):
+        # decode on instr in IFIDReg
+        if IFIDReg['valid']:
+            instr = IFIDReg['content'][0]
+            if instr != 0:
+                # stage: instruction decode
+                # control signals
+                cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = controlUnit(instr)
+                controlUnitOutput = list(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
+                # decoded registers and data
+                decodeOutput = list(decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink))
+                IDEXReg.udpate({'valid' : 1, 'controlUnitOutput' : controlUnitOutput, 'decodeOutput': decodeOutput})
+        
+    def bufferExecute(self):
+        # execute on instr in IDEXReg
+        if IDEXReg['valid']:
+            cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = IDEXReg['controlUnitOutput']
+            pcTemp, rdData1, rdData2, immed, opcode, func, wReg = IDEXReg['decodeOutput']
+            pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
 
 IB = instrBuffer()
 
@@ -52,11 +62,8 @@ while True:
     if (getPC() not in iMem.keys()):
         break
     
-    #IF
-    instr = fetch()
-    IB.add(instr)
-
-    #put necessary buffers in the IF/ID pipeline register
-
-    #ID
+    # IF
+    IB.bufferFetch(IFIDReg)
+    
+    # ID
     IB.bufferDecode()

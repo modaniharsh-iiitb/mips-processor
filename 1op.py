@@ -11,42 +11,44 @@ initDMem()
 clock = clk(0.95)
 i = 1
 
-while True:
-    if (getPC() not in iMem.keys()):
-        break
+for i in range(200):
 
     # stage: instruction fetch
     clock.cycle()
     # next instruction
     # print('PC:',hex(getPC())[2:])
+    print('Instruction no:',(i+1))
     lineNo = ((getPC()-0x00400000)//4)+1
-    # print('Line no:',lineNo)
+    if (lineNo in range(18, 26)):
+        print('Line no:',lineNo,'#########################')
     instr = fetch()
-    # print(bin(instr)[2:].zfill(32))
+    if (instr == 0):
+        break
+    print(bin(instr)[2:].zfill(32))
 
     # stage: instruction decode
     # control signals
     cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = controlUnit(instr)
-    # print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
+    print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
     # decoded registers and data
     pcTemp, rdData1, rdData2, immed, opcode, func, wReg = decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink)
-    # print(jTarget, rdData1, rdData2, immed, opcode, func, wReg)
+    print(pcTemp, rdData1, rdData2, immed, opcode, func, wReg)
 
     # stage: ALU execute
     # values obtained from ALU operations (also takes care of branching)
     pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
-    # print(jTarget, rdData2, aluRes1, aluRes2, wReg)
+    print(pcTemp, rdData2, aluRes1, aluRes2, wReg)
 
     # stage: memory access
     # values read or written to memory
-    wData, aluRes1, aluRes2, pcTemp, wReg = memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg)
-    # print(wData, aluRes1, aluRes2, pcTemp, wReg)
+    wData, aluRes1, aluRes2, wReg = memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
+    print(wData, aluRes1, aluRes2, wReg)
 
     # stage: register writeback
     # values written back into registers if needed
-    writeback(wData, aluRes1, aluRes2, pcTemp, wReg, cRegWr, cHiLoWr, cLink)
+    writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
     
-    # print()
+    print()
 
 print('Done executing')
 print('No. of cycles:', clock.noOfCycles())
