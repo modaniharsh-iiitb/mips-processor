@@ -53,7 +53,7 @@ def controlUnit(instr):
     cAluSrc = int(opcode not in [0, 4, 5])
     cMemReg = int(opcode == 35)
     cRegWr = int(opcode not in [2, 4, 5, 43] and 
-                 (func not in [24, 26] if opcode == 0 else 1))
+                 (func not in [8, 24, 26] if opcode == 0 else 1))
     cMemRd = int(opcode == 35)
     cMemWr = int(opcode == 43)
     cBranch = int(opcode in [4, 5])
