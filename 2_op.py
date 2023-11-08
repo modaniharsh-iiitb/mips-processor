@@ -39,7 +39,7 @@ class instrBuffer:
     def bufferDecode(self):
         # decode on instr in IFIDReg
         if IFIDReg['valid']:
-            instr = IFIDReg['content'][0]
+            instr, = IFIDReg['content']
             if instr != 0:
                 # stage: instruction decode
                 # control signals
@@ -55,6 +55,24 @@ class instrBuffer:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = IDEXReg['controlUnitOutput']
             pcTemp, rdData1, rdData2, immed, opcode, func, wReg = IDEXReg['decodeOutput']
             pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
+            executeOutput = list(pcTemp, rdData2, aluRes1, aluRes2, wReg)
+            EXMEMReg.update({'valid' : 1, 'controlUnitOutput' : IDEXReg['controlUnitOutput'], 'executeOutput' : executeOutput})
+
+    def bufferMemory(self):
+        # memory stage on instr in EXMEMReg
+        if EXMEMReg['valid']:
+            cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = EXMEMReg['controlUnitOutput']
+            pcTemp, rdData2, aluRes1, aluRes2, wReg = EXMEMReg['executeOutput']
+            wData, aluRes1, aluRes2, wReg = memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
+            memoryOutput = list(wData, aluRes1, aluRes2, wReg)
+            MEMWBReg.update({'valid' : 1, 'controlUnitOutput' : EXMEMReg['controlUnitOutput'], 'memoryOutput' : memoryOutput})
+
+    def bufferWriteback(self):
+        # writeback stage on instr in MEMWBReg
+        if MEMWBReg['valid']:
+            cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = MEMWBReg['controlUnitOutput']
+            wData, aluRes1, aluRes2, wReg = MEMWBReg['memoryOutput']
+            writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
 
 IB = instrBuffer()
 
