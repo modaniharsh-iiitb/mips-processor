@@ -1,0 +1,47 @@
+addi $t1, $0, 3
+lui $t2, 4096
+lui $t3, 4096
+addi $t3, $t3, 12
+addi $t4, $0, 0
+addi $t5, $t2, 0
+addi $t6, $t3, 0
+j copy_sorted
+begin_sort: addi $t4, $0, 0
+outer_loop: addi $t9, $t3, 0
+beq $t4, $t1, end_outer_loop
+addi $t5, $0, 0
+addi $s0, $0, 0
+sub $t6, $t1, $t4
+addi $s1, $0, 1
+sub $t6, $t6, $s1
+j inner_loop
+inner_loop: beq $t5, $t6, end_inner_loop
+lw $s1, 0($t9)
+lw $s2, 4($t9)
+sub $s3, $s2, $s1
+slt $s4, $s3, $0
+addi $s5, $0, 1
+beq $s4, $s5, swap
+back_from_swap: addi $t9, $t9, 4
+addi $t5, $t5, 1
+j inner_loop
+end_inner_loop: beq $s0, $0, end_outer_loop
+addi $t4, $t4, 1
+jal check_swapped
+j outer_loop
+swap: lw $t7, 0($t9)
+lw $t8, 4($t9)
+sw $t8, 0($t9)
+sw $t7, 4($t9)
+addi $s0, $0, 1
+j back_from_swap
+check_swapped: beq $s0, $0, end_outer_loop
+jr $ra
+copy_sorted: beq $t4, $t1, begin_sort
+lw $t7, 0($t5)
+sw $t7, 0($t6)
+addi $t4, $t4, 1
+addi $t5, $t5, 4
+addi $t6, $t6, 4
+j copy_sorted
+end_outer_loop: add $s0, $s0, $0
