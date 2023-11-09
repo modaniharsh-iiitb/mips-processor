@@ -13,16 +13,16 @@ clock = clk(0.25)
 # queue for instructions(with max length 5)
 
 # IF/ID pipeline register
-IFIDReg = {'valid': 0, 'stall': 0, 'instr': 0} # has only instr
+IFIDReg = {'valid': 0, 'stall': 0, 'lineNo': 0} # has only instr
 
 # ID/EX pipeline register
-IDEXReg = {'valid': 0, 'stall': 0, 'instr': 0} # has cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
+IDEXReg = {'valid': 0, 'stall': 0, 'lineNo': 0} # has cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr, jTarget, rdData1, rdData2, immed, opcode, func, wReg
 
 # EX/MEM pipeline register
-EXMEMReg = {'valid': 0, 'stall': 0, 'instr': 0}
+EXMEMReg = {'valid': 0, 'stall': 0, 'lineNo': 0}
 
 # MEM/WB pipeline register
-MEMWBReg = {'valid': 0, 'stall': 0, 'instr': 0}
+MEMWBReg = {'valid': 0, 'stall': 0, 'lineNo': 0}
 
 class instrBuffer:
     def __init__(self):
@@ -31,7 +31,7 @@ class instrBuffer:
     def bufferFetch(self):
         global IFIDReg
         # fetch new instruction
-        IFIDReg.update({'instr': (getPC()-int(0x400000))//4+1})
+        IFIDReg.update({'lineNo': (getPC()-int(0x400000))//4+1})
         instr = fetch()
         # put fetch result in IFIDReg
         content = [instr]
@@ -55,7 +55,7 @@ class instrBuffer:
                 decodeOutput = list(decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink))
                 IDEXReg.update({'valid': 1, 'controlUnitOutput': controlUnitOutput, 'decodeOutput': decodeOutput})
                 print('ID:')
-                IDEXReg.update({'instr': IFIDReg['instr']})
+                IDEXReg.update({'lineNo': IFIDReg['lineNo']})
                 print(IDEXReg)
             # if decodeOutput[4] == lw ka opcode:
             # 
@@ -68,15 +68,15 @@ class instrBuffer:
         # execute on instr in IDEXReg
         if IDEXReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = IDEXReg['controlUnitOutput']
-            pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = IDEXReg['decodeOutput']
-            pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
+            instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = IDEXReg['decodeOutput']
+            instr, pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
             if cBranch and (aluRes2 == 0):
                 IFIDReg['valid'] = 0
                 IDEXReg['valid'] = 0
-            executeOutput = list([pcTemp, rdData2, aluRes1, aluRes2, wReg])
+            executeOutput = list([instr, pcTemp, rdData2, aluRes1, aluRes2, wReg])
             EXMEMReg.update({'valid': 1, 'controlUnitOutput': IDEXReg['controlUnitOutput'], 'executeOutput': executeOutput})
             print('EX:')
-            EXMEMReg.update({'instr': IDEXReg['instr']})
+            EXMEMReg.update({'lineNo': IDEXReg['lineNo']})
             print(EXMEMReg)
         else:
             print('EX: invalid')
@@ -87,12 +87,12 @@ class instrBuffer:
         # memory stage on instr in EXMEMReg
         if EXMEMReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = EXMEMReg['controlUnitOutput']
-            pcTemp, rdData2, aluRes1, aluRes2, wReg = EXMEMReg['executeOutput']
-            wData, aluRes1, aluRes2, wReg = memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
-            memoryOutput = list([wData, aluRes1, aluRes2, wReg])
+            instr, pcTemp, rdData2, aluRes1, aluRes2, wReg = EXMEMReg['executeOutput']
+            instr, wData, aluRes1, aluRes2, wReg = memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
+            memoryOutput = list([instr, wData, aluRes1, aluRes2, wReg])
             MEMWBReg.update({'valid': 1, 'controlUnitOutput': EXMEMReg['controlUnitOutput'], 'memoryOutput': memoryOutput})
             print('MEM:')
-            MEMWBReg.update({'instr': EXMEMReg['instr']})
+            MEMWBReg.update({'lineNo': EXMEMReg['lineNo']})
             print(MEMWBReg)
         else:
             print('MEM: invalid')
@@ -103,7 +103,7 @@ class instrBuffer:
         # writeback stage on instr in MEMWBReg
         if MEMWBReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = MEMWBReg['controlUnitOutput']
-            wData, aluRes1, aluRes2, wReg = MEMWBReg['memoryOutput']
+            instr, wData, aluRes1, aluRes2, wReg = MEMWBReg['memoryOutput']
             writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
             print('WB:')
             print(MEMWBReg)
@@ -112,40 +112,44 @@ class instrBuffer:
 
     def forwardRegisters(self):
         global IDEXReg, EXMEMReg, MEMWBReg
-        if MEMWBReg['valid']:
-            IDEXinstr = IDEXReg['instr']
-            MEMWBcRegDst, MEMWBcMemReg, MEMWBcRegWr = MEMWBReg['controlUnitOutput'][0], MEMWBReg['controlUnitOutput'][2], MEMWBReg['controlUnitOutput'][3]
-            MEMWBwData = MEMWBReg['memoryOutput'][0]
-            MEMWBinstr = MEMWBReg['instr']
-            if (MEMWBcRegWr and MEMWBcMemReg):
-                a, b = (16, 21) if MEMWBcRegDst else (11, 16)
-                if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
-                    IDEXrdData1 = MEMWBwData
-                    IDEXReg['decodeOutput'][1] = IDEXrdData1
-                    print(bin(MEMWBinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[6:11])
-                    print('Forwarding used LW style')
-                if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
-                    IDEXrdData2 = MEMWBwData
-                    IDEXReg['decodeOutput'][2] = IDEXrdData2
-                    print(bin(MEMWBinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[11:16])
-                    print('Forwarding used LW style')
-        if EXMEMReg['valid']:
-            IDEXinstr = IDEXReg['instr']
-            EXMEMcRegDst, EXMEMcMemReg, EXMEMcRegWr = EXMEMReg['controlUnitOutput'][0], EXMEMReg['controlUnitOutput'][2], EXMEMReg['controlUnitOutput'][3]
-            aluRes2 = EXMEMReg['executeOutput'][3]
-            EXMEMinstr = EXMEMReg['instr']
-            if (EXMEMcRegWr and not EXMEMcMemReg):
-                a, b = (16, 21) if EXMEMcRegDst else (11, 16)
-                if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
-                    IDEXrdData1 = aluRes2
-                    IDEXReg['decodeOutput'][1] = IDEXrdData1
-                    print(bin(EXMEMinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[6:11])
-                    print('Forwarding used other style')
-                if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
-                    IDEXrdData2 = aluRes2
-                    IDEXReg['decodeOutput'][2] = IDEXrdData2
-                    print(bin(EXMEMinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[11:16])
-                    print('Forwarding used LW style')
+        if IDEXReg['valid']:
+            IDEXinstr = IDEXReg['decodeOutput'][0]
+
+            if MEMWBReg['valid']:
+                MEMWBcRegDst, MEMWBcRegWr = MEMWBReg['controlUnitOutput'][0], MEMWBReg['controlUnitOutput'][3]
+                MEMWBinstr, MEMWBwData = MEMWBReg['memoryOutput'][0], MEMWBReg['memoryOutput'][1]
+                if (MEMWBcRegWr):
+                    a, b = (16, 21) if MEMWBcRegDst else (11, 16)
+                    if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
+                        IDEXrdData1 = MEMWBwData
+                        IDEXReg['decodeOutput'][2] = IDEXrdData1
+                        print(int(bin(IDEXinstr)[2:].zfill(32)[6:11], 2))
+                        print('Forwarding used from two instructions before')
+                        print('New value of register:',IDEXrdData1)
+                    if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
+                        IDEXrdData2 = MEMWBwData
+                        IDEXReg['decodeOutput'][3] = IDEXrdData2
+                        print(int(bin(IDEXinstr)[2:].zfill(32)[11:16], 2))
+                        print('Forwarding used from two instructions before')
+                        print('New value of register:',IDEXrdData2)
+
+            if EXMEMReg['valid']:
+                EXMEMcRegDst, EXMEMcMemReg, EXMEMcRegWr = EXMEMReg['controlUnitOutput'][0], EXMEMReg['controlUnitOutput'][2], EXMEMReg['controlUnitOutput'][3]
+                EXMEMinstr, EXMEMaluRes2 = EXMEMReg['executeOutput'][0], EXMEMReg['executeOutput'][4]
+                if (EXMEMcRegWr and not EXMEMcMemReg):
+                    a, b = (16, 21) if EXMEMcRegDst else (11, 16)
+                    if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
+                        IDEXrdData1 = EXMEMaluRes2
+                        IDEXReg['decodeOutput'][2] = IDEXrdData1
+                        print(int(bin(IDEXinstr)[2:].zfill(32)[6:11], 2))
+                        print('Forwarding used from one instruction before')
+                        print('New value of register:',IDEXrdData1)
+                    if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
+                        IDEXrdData2 = EXMEMaluRes2
+                        IDEXReg['decodeOutput'][3] = IDEXrdData2
+                        print(int(bin(IDEXinstr)[2:].zfill(32)[11:16], 2))
+                        print('Forwarding used from one instruction before')
+                        print('New value of register:',IDEXrdData2)
 
 
 IB = instrBuffer()

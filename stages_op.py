@@ -230,9 +230,9 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
     # by the next stage if not needed)
-    return pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget
+    return instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget
 
-def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, 
+def execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, 
             cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
 
@@ -262,9 +262,9 @@ def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp
     # this stage returns the result of ALU calculation and whether it
     # is equal to zero, and also checks if the new PC should be equal to
     # the branch target
-    return pcTemp, rdData2, aluRes1, aluRes2, wReg
+    return instr, pcTemp, rdData2, aluRes1, aluRes2, wReg
 
-def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink):
+def memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink):
     global dMem, pc
 
     # forming the address out of aluRes2
@@ -284,7 +284,7 @@ def memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLi
             dMem[address+i] = int(wDStr[(8*i):(8*i+8)], 2)
     
     
-    return wData, aluRes1, aluRes2, wReg
+    return instr, wData, aluRes1, aluRes2, wReg
 
 def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
     global reg, hi, lo

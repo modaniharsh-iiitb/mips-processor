@@ -39,18 +39,18 @@ for i in range(200):
     cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = controlUnit(instr)
     print(cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
     # decoded registers and data
-    pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink)
-    print(pcTemp, rdData1, rdData2, immed, opcode, func, wReg)
+    instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink)
+    print(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg)
 
     # stage: ALU execute
     # values obtained from ALU operations (also takes care of branching)
-    pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
-    print(pcTemp, rdData2, aluRes1, aluRes2, wReg)
+    instr, pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
+    print(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg)
 
     # stage: memory access
     # values read or written to memory
-    wData, aluRes1, aluRes2, wReg = memory(pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
-    print(wData, aluRes1, aluRes2, wReg)
+    instr, wData, aluRes1, aluRes2, wReg = memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
+    print(instr, wData, aluRes1, aluRes2, wReg)
 
     # stage: register writeback
     # values written back into registers if needed
