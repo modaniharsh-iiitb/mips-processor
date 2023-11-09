@@ -110,9 +110,48 @@ class instrBuffer:
         else:
             print('WB: invalid')
 
+    def forwardRegisters(self):
+        global IDEXReg, EXMEMReg, MEMWBReg
+        if MEMWBReg['valid']:
+            IDEXinstr = IDEXReg['instr']
+            MEMWBcRegDst, MEMWBcMemReg, MEMWBcRegWr = MEMWBReg['controlUnitOutput'][0], MEMWBReg['controlUnitOutput'][2], MEMWBReg['controlUnitOutput'][3]
+            MEMWBwData = MEMWBReg['memoryOutput'][0]
+            MEMWBinstr = MEMWBReg['instr']
+            if (MEMWBcRegWr and MEMWBcMemReg):
+                a, b = (16, 21) if MEMWBcRegDst else (11, 16)
+                if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
+                    IDEXrdData1 = MEMWBwData
+                    IDEXReg['decodeOutput'][1] = IDEXrdData1
+                    print(bin(MEMWBinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[6:11])
+                    print('Forwarding used LW style')
+                if bin(MEMWBinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
+                    IDEXrdData2 = MEMWBwData
+                    IDEXReg['decodeOutput'][2] = IDEXrdData2
+                    print(bin(MEMWBinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[11:16])
+                    print('Forwarding used LW style')
+        if EXMEMReg['valid']:
+            IDEXinstr = IDEXReg['instr']
+            EXMEMcRegDst, EXMEMcMemReg, EXMEMcRegWr = EXMEMReg['controlUnitOutput'][0], EXMEMReg['controlUnitOutput'][2], EXMEMReg['controlUnitOutput'][3]
+            aluRes2 = EXMEMReg['executeOutput'][3]
+            EXMEMinstr = EXMEMReg['instr']
+            if (EXMEMcRegWr and not EXMEMcMemReg):
+                a, b = (16, 21) if EXMEMcRegDst else (11, 16)
+                if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[6:11]:
+                    IDEXrdData1 = aluRes2
+                    IDEXReg['decodeOutput'][1] = IDEXrdData1
+                    print(bin(EXMEMinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[6:11])
+                    print('Forwarding used other style')
+                if bin(EXMEMinstr)[2:].zfill(32)[a:b] == bin(IDEXinstr)[2:].zfill(32)[11:16]:
+                    IDEXrdData2 = aluRes2
+                    IDEXReg['decodeOutput'][2] = IDEXrdData2
+                    print(bin(EXMEMinstr)[2:].zfill(32)[a:b], bin(IDEXinstr)[2:].zfill(32)[11:16])
+                    print('Forwarding used LW style')
+
+
 IB = instrBuffer()
 
 while True:
+
     # WB
     IB.bufferWriteback()
 
@@ -128,6 +167,8 @@ while True:
     # IF
     if (IB.bufferFetch() == 0):
         break
+
+    IB.forwardRegisters()
 
     clock.cycle()
     print()
