@@ -63,7 +63,7 @@ def controlUnit(instr):
     cHiRd = int(func == 16)
     cJmp = int((opcode == 0 and func == 8) or (opcode in [2, 3]))
     cLink = int(opcode == 3)
-    cJr = int(func == 8)
+    cJr = int(opcode == 0 and func == 8)
     # CU returns 14 signals
     return (cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, 
             cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr)
