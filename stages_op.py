@@ -224,13 +224,15 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     if (cJmp):
         pcTemp = pc
         pc = jTarget
+    
+    bTarget = pc+(immed << 2)
 
     # this stage returns the two register read data, the immediate value, 
     # the function value and writeback register (will be ignored
     # by the next stage if not needed)
-    return pcTemp, rdData1, rdData2, immed, opcode, func, wReg
+    return pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget
 
-def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, 
+def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, 
             cAluSrc, cBranch, cLoRd, cHiRd):
     global pc
 
@@ -255,7 +257,6 @@ def execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp,
     if (cLoRd or cHiRd):
         aluRes2 = rdData2
     cZero = int(aluResult == 0)
-    bTarget = pc+(immed << 2)
     if (cBranch and cZero):
         pc = bTarget
     # this stage returns the result of ALU calculation and whether it
@@ -298,7 +299,7 @@ def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
 
 ##### utility
 
-# function to print the data memory (by word, not by bytes)
+# function to s the data memory (by word, not by bytes)
 def printDMem():
     global dMem
 

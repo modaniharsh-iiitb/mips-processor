@@ -7,8 +7,6 @@ initReg()
 initIMem()
 initDMem()
 
-flush = 0
-
 # clock of 250 microsecond time period
 clock = clk(0.25)
 
@@ -38,12 +36,13 @@ class instrBuffer:
         # put fetch result in IFIDReg
         content = [instr]
         IFIDReg.update({'valid': 1, 'content': content})
-        print("IF:")
+        print('IF:')
         print(bin(IFIDReg['content'][0])[2:].zfill(32))
         print(IFIDReg)
         return instr
     
     def bufferDecode(self):
+        global IFIDReg, IDEXReg
         # decode on instr in IFIDReg
         if IFIDReg['valid']:
             instr, = IFIDReg['content'] # unpack instr
@@ -62,16 +61,18 @@ class instrBuffer:
             # 
         else:
             print('ID: invalid')
+            IDEXReg['valid'] = 0
         
     def bufferExecute(self):
+        global IFIDReg, IDEXReg, EXMEMReg
         # execute on instr in IDEXReg
         if IDEXReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = IDEXReg['controlUnitOutput']
-            pcTemp, rdData1, rdData2, immed, opcode, func, wReg = IDEXReg['decodeOutput']
-            pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
-            if cBranch and aluRes2 == 0:
+            pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = IDEXReg['decodeOutput']
+            pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
+            if cBranch and (aluRes2 == 0):
+                IFIDReg['valid'] = 0
                 IDEXReg['valid'] = 0
-                flush = 1
             executeOutput = list([pcTemp, rdData2, aluRes1, aluRes2, wReg])
             EXMEMReg.update({'valid': 1, 'controlUnitOutput': IDEXReg['controlUnitOutput'], 'executeOutput': executeOutput})
             print('EX:')
@@ -79,8 +80,10 @@ class instrBuffer:
             print(EXMEMReg)
         else:
             print('EX: invalid')
+            EXMEMReg['valid'] = 0
 
     def bufferMemory(self):
+        global EXMEMReg, MEMWBReg
         # memory stage on instr in EXMEMReg
         if EXMEMReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = EXMEMReg['controlUnitOutput']
@@ -93,14 +96,16 @@ class instrBuffer:
             print(MEMWBReg)
         else:
             print('MEM: invalid')
+            MEMWBReg['valid'] = 0
 
     def bufferWriteback(self):
+        global MEMWBReg
         # writeback stage on instr in MEMWBReg
         if MEMWBReg['valid']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = MEMWBReg['controlUnitOutput']
             wData, aluRes1, aluRes2, wReg = MEMWBReg['memoryOutput']
             writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
-            print('WB')
+            print('WB:')
             print(MEMWBReg)
         else:
             print('WB: invalid')
@@ -120,10 +125,6 @@ while True:
     # ID
     IB.bufferDecode()
 
-    if flush:
-        IFIDReg['valid'] = 0
-        flush = 0
-
     # IF
     if (IB.bufferFetch() == 0):
         break
@@ -134,3 +135,7 @@ while True:
 
 print('No. of cycles:', clock.noOfCycles())
 print('Time taken:',round(clock.getTimeTaken(), 2),'ms')
+
+printDMem()
+
+commitToMem()
