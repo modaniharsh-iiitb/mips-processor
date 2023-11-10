@@ -13,7 +13,7 @@ i = 1
 
 # f = open('notes1.txt', 'w')
 
-for i in range(200):
+while True:
 
     # stage: instruction fetch
     clock.cycle()

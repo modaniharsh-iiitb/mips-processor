@@ -29,23 +29,27 @@ class instrBuffer:
         pass
 
     def bufferFetch(self):
-        global IFIDReg
+        global IFIDReg, IDEXReg
         # fetch new instruction
-        IFIDReg.update({'lineNo': (getPC()-int(0x400000))//4+1})
-        instr = fetch()
-        # put fetch result in IFIDReg
-        content = [instr]
-        IFIDReg.update({'valid': 1, 'content': content})
-        print('IF:')
-        print(bin(IFIDReg['content'][0])[2:].zfill(32))
-        print(IFIDReg)
-        return instr
+        if not IDEXReg['valid'] or (IDEXReg['valid'] and not IDEXReg['stall']):
+            IFIDReg.update({'lineNo': (getPC()-int(0x400000))//4+1})
+            instr = fetch()
+            # put fetch result in IFIDReg
+            fetchOutput = [instr]
+            IFIDReg.update({'valid': 1, 'fetchOutput': fetchOutput})
+            print('IF:')
+            print(bin(IFIDReg['fetchOutput'][0])[2:].zfill(32))
+            print(IFIDReg)
+            return instr
+        elif IDEXReg['stall']:
+            IDEXReg['stall'] = 0
+        return IFIDReg['fetchOutput'][0]
     
     def bufferDecode(self):
-        global IFIDReg, IDEXReg
+        global IFIDReg, IDEXReg, EXMEMReg
         # decode on instr in IFIDReg
         if IFIDReg['valid']:
-            instr, = IFIDReg['content'] # unpack instr
+            instr, = IFIDReg['fetchOutput'] # unpack instr
             if instr != 0:
                 # stage: instruction decode
                 # control signals
@@ -54,6 +58,17 @@ class instrBuffer:
                 # decoded registers and data
                 decodeOutput = list(decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink))
                 IDEXReg.update({'valid': 1, 'controlUnitOutput': controlUnitOutput, 'decodeOutput': decodeOutput})
+                if EXMEMReg['valid']:
+                    EXMEMcMemReg = EXMEMReg['controlUnitOutput'][2]
+                    EXMEMinstr = EXMEMReg['executeOutput'][0]
+                    if EXMEMcMemReg:
+                        EXMEMRd = bin(EXMEMinstr)[2:].zfill(32)[11:16]
+                        IDEXRs = bin(instr)[2:].zfill(32)[6:11]
+                        IDEXRt = bin(instr)[2:].zfill(32)[11:16]
+                        if EXMEMRd in (IDEXRs, IDEXRt):
+                            IDEXReg['stall'] = 1
+                            print(f'Turned on stall bcoz {EXMEMRd} and {IDEXRs} and also {IDEXRt}')
+                    
                 print('ID:')
                 IDEXReg.update({'lineNo': IFIDReg['lineNo']})
                 print(IDEXReg)
@@ -66,7 +81,7 @@ class instrBuffer:
     def bufferExecute(self):
         global IFIDReg, IDEXReg, EXMEMReg
         # execute on instr in IDEXReg
-        if IDEXReg['valid']:
+        if IDEXReg['valid'] and not IDEXReg['stall']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = IDEXReg['controlUnitOutput']
             instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget = IDEXReg['decodeOutput']
             instr, pcTemp, rdData2, aluRes1, aluRes2, wReg = execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget, cAluOp, cAluSrc, cBranch, cLoRd, cHiRd)
@@ -78,6 +93,10 @@ class instrBuffer:
             print('EX:')
             EXMEMReg.update({'lineNo': IDEXReg['lineNo']})
             print(EXMEMReg)
+        elif IDEXReg['stall']:
+            EXMEMReg['stall'] = 1
+            IDEXReg['stall'] = 0
+            print('EX: stalled')
         else:
             print('EX: invalid')
             EXMEMReg['valid'] = 0
@@ -85,7 +104,7 @@ class instrBuffer:
     def bufferMemory(self):
         global EXMEMReg, MEMWBReg
         # memory stage on instr in EXMEMReg
-        if EXMEMReg['valid']:
+        if EXMEMReg['valid'] and not EXMEMReg['stall']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = EXMEMReg['controlUnitOutput']
             instr, pcTemp, rdData2, aluRes1, aluRes2, wReg = EXMEMReg['executeOutput']
             instr, wData, aluRes1, aluRes2, wReg = memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink)
@@ -94,6 +113,10 @@ class instrBuffer:
             print('MEM:')
             MEMWBReg.update({'lineNo': EXMEMReg['lineNo']})
             print(MEMWBReg)
+        elif EXMEMReg['stall']:
+            MEMWBReg['stall'] = 1
+            EXMEMReg['stall'] = 0
+            print('MEM: stalled')
         else:
             print('MEM: invalid')
             MEMWBReg['valid'] = 0
@@ -101,16 +124,17 @@ class instrBuffer:
     def bufferWriteback(self):
         global MEMWBReg
         # writeback stage on instr in MEMWBReg
-        if MEMWBReg['valid']:
+        if MEMWBReg['valid'] and not MEMWBReg['stall']:
             cRegDst, cAluSrc, cMemReg, cRegWr, cMemRd, cMemWr, cBranch, cAluOp, cHiLoWr, cLoRd, cHiRd, cJmp, cLink, cJr = MEMWBReg['controlUnitOutput']
             instr, wData, aluRes1, aluRes2, wReg = MEMWBReg['memoryOutput']
             writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
             print('WB:')
             print(MEMWBReg)
         else:
-            print('WB: invalid')
+            MEMWBReg['stall'] = 0
+            print('WB: invalid or stalled')
 
-    def forwardRegisters(self):
+    def forwardingUnit(self):
         global IDEXReg, EXMEMReg, MEMWBReg
         if IDEXReg['valid']:
             IDEXinstr = IDEXReg['decodeOutput'][0]
@@ -172,7 +196,7 @@ while True:
     if (IB.bufferFetch() == 0):
         break
 
-    IB.forwardRegisters()
+    IB.forwardingUnit()
 
     clock.cycle()
     print()
