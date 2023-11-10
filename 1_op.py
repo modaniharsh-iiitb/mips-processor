@@ -9,7 +9,6 @@ initDMem()
 
 # clock of 950 microsecond time period
 clock = clk(0.95)
-i = 1
 
 while True:
 

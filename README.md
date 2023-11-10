@@ -80,6 +80,34 @@ by taking the return address field's value (`36384`) and multiplying it by 4 (ef
 
 ### Pipelining
 
+Pipelining is the procedure employed by MIPS and several other ISAs to try and ensure that the various stages of execution of an instruction (e.g. memory access, register file access) are used simultaneously, thereby saving time.
+
+#### Pipeline registers
+
+MIPS makes use of extra registers on the dye, referred to as **pipeline registers**, that store the data that serves as an intermediate to two stages in MIPS.
+
+Since there are 5 broad stages in MIPS (Fetch-Decode-Execute-Memory access-Register Writeback) that are executed in a linear fashion, there are 4 pipeline registers that exist between any two consecutive registers. These are as follows:
+
+- **Fetch/Decode register**
+- **Decode/Execute register**
+- **Execute/Memory register**
+- **Memory/Writeback register**
+
+#### Hazards - structural, control and data hazards
+
+Of course, due to the introduction of pipelining in MIPS, several functions that would work perfectly in MIPS start to show malfunnctions in their operation. There are mainly 3 types of hazards, namely structural hazards, data hazards and control hazards.
+
+- **Structural hazards** are those hazards that occur when the same structure (e.g. register file) is accessed by two different instructions in the same cycle, thereby leading to a risk of corrupted output for both instructions. This can be avoided by separating structures to make them exclusive to one phase of the instruction (e.g. splitting instruction and data memory), or implementing write-read cycles (i.e., writing to the structure in the first cycle, and reading from it in the second).
+- **Data hazards** are those hazards that occur when an instruction retrieves incorrect data due to the structures not having been updated by previous instructions while the data is retrieved from the current instruction. To avoid data hazards, both **stalling/NOPing** and **forwarding** are used.
+- **Control hazards** are those hazards that occur when incorrect instructions that do not follow irregular program flow (e.g. `j`, `beq`) enter the pipeline stages anyway. **Stalls** can be used preemptively to prevent unnecessary instructions from entering the pipeline, or alternatively **pipeline flushing** can be used to remove the data left behind by unnecessarily running instructions.
+
+#### Resolving hazards - stalling/NOPing, forwarding, pipeline flushing
+
+- **Stalling** is the process of temporarily preventing one of the stages of the MIPS processor from operating, in order for the instruction bearing the stall to be able to obtain values that it may not have obtained correctly had it not waited. Stalls can also be used to prevent instructions that should not be executed from entering the processor at all.
+- **NOPing** is a similar procedure, but it involves introducing a NOP (no operation) instruction before the instruction that needs to be stalled so that the latter gets enough time to ensure that no dependencies are left unresolved.
+- **Forwarding** is the procedure of sending data from intermediate pipeline registers backwards (i.e. to future instructions) that may need register data that is meant to be overwritten.
+- **Pipeline flushing** is the process of "flushing" or invalidating any instruction that has been run since the instruction under scrutiny, and was not meant to run by program design.
+
 ## Implementation
 
 ### Registers
@@ -141,6 +169,17 @@ jal?    000011 (03)
 
 ### Pipelining
 
+#### Pipeline registers
+
+The following pipelined registers are used in `2_op.py`:
+
+- `IFIDReg`
+- `IDEXReg`
+- `EXMEMReg`
+- `MEMWBReg`
+
+#### Resolving hazards
+
 ### Variables and their meaning
 
 #### Global variables
@@ -150,6 +189,7 @@ jal?    000011 (03)
 - `dMem`: the data memory (similar to above, but the corresponding value to each address is a byte instead of a word). It is byte-addressible.
 - `pc`: the program counter (integer). Starts at the base instruction memory location, i.e. `0x04000000`.
 - `hi`, `lo`: registers corresponding to `hi` and `lo` as in MIPS, used in multiplication and division operations (integers).
+- `clock`: representation of the clock that works with any processor. It has the option to customize its cycle duration, emulate a cycle, return the total number of cycles emulated and the corresponding time taken.
 
 #### Control signals
 
@@ -170,15 +210,78 @@ jal?    000011 (03)
 
 To emulate the non-pipelined processor, ensure you are in the root directory of this project and run the command:
 
-```python 1op.py```
+```python 1_op.py```
 
 Similarly, for the pipelined processor, run the following command:
 
-```python 2op.py```
+```python 2_op.py```
 
 ### Output
+
+Both programs provide the following output:
+
+```
+Done executing
+No. of cycles: 116
+Time taken: 110.2 ms
+
+Value of registers:
+$0:     0
+$1:     0
+$2:     0
+$3:     0
+$4:     0
+$5:     0
+$6:     0
+$7:     0
+$8:     0
+$9:     3
+$10:    268435456
+$11:    268435468
+$12:    2
+$13:    0
+$14:    0
+$15:    4
+$16:    0
+$17:    1
+$18:    3
+$19:    -1
+$20:    1
+$21:    1
+$22:    0
+$23:    0
+$24:    3
+$25:    268435468
+$26:    0
+$27:    0
+$28:    268435456
+$29:    2147479548
+$30:    0
+$31:    0
+
+Value of data memory:
+0x10000000      4
+0x10000004      5
+0x10000008      3
+0x1000000c      3
+0x10000010      4
+0x10000014      5
+0x10000018      0
+0x1000001c      0
+0x10000020      0
+0x10000024      0
+0x10000028      0
+0x1000002c      0
+```
+
+The values of data memory, in addition, are also stored into the `bindata` file.
 
 ## External References (Outside the material of this course)
 
 - Register numbers and equivalent names: [MIPS Quick Reference, cs.jhu.edu](https://www.cs.jhu.edu/~cs333/reference.html)
 - MIPS opcodes: [MIPS Opcode Reference](http://mipsconverter.com/opcodes.html)
+
+## Authors
+
+- IMT2022055 Harsh Modani
+- IMT2022102 Md. Owais

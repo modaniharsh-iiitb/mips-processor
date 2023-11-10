@@ -18,8 +18,13 @@ def getPC():
 ##### initializations
 
 def initReg():
+    # most registers start at zero
     for _ in range(32):
         reg.append(0)
+    # global pointer
+    reg[28] = 0x10000000
+    # stack pointer
+    reg[29] = 0x7fffeffc
 
 def initIMem():
     # instruction memory starts at location 0x04000000
