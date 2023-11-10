@@ -11,28 +11,19 @@ initDMem()
 clock = clk(0.95)
 i = 1
 
-# f = open('notes1.txt', 'w')
-
 while True:
 
     # stage: instruction fetch
     clock.cycle()
-    # next instruction
-    # print('PC:',hex(getPC())[2:])
     print('Instruction no:',(i+1))
-    # f.write(f'Instruction no: {str(i+1)} \n')
     lineNo = ((getPC()-0x00400000)//4)+1
-    print('Line no:',lineNo,end='')
-    # f.write(f'Line no: {lineNo}\n')
-    if (lineNo in range(18, 26)):
-        print(' ########################################')
-    else:
-        print()
+    print('Line no:',lineNo)
+    # next instruction
     instr = fetch()
+    # invalid pc fetch; therefore terminate the program
     if (instr == 0):
         break
     print(bin(instr)[2:].zfill(32))
-    # f.write(bin(instr)[2:].zfill(32)+'\n')
 
     # stage: instruction decode
     # control signals
@@ -56,15 +47,13 @@ while True:
     # values written back into registers if needed
     writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr)
     
-    # f.write(f'$t5: {reg[13]}\n')
-    # f.write(f'$0: {reg[0]}\n')
     print()
 
 print('Done executing')
 print('No. of cycles:', clock.noOfCycles())
 print('Time taken:',round(clock.getTimeTaken(), 2),'ms')
-print('Value of registers:')
 print()
+print('Value of registers:')
 printReg()
 print()
 print('Value of data memory:')

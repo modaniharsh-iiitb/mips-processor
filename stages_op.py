@@ -157,18 +157,18 @@ def alu(val1, val2, cAluCont):
 ##### stages
 
 def fetch():
-    #resolve comments
     global pc, iMem
     
-    # the instruction to be executed
     if (pc in iMem.keys()):
+        # the instruction to be executed
         instr = iMem[pc]
+        # pc gets incremented in the fetch stage
         pc += 4
+        # this stage returns the instruction
         return instr
     else:
+        # the zero return is used to terminate flow
         return 0
-    # program counter incremented
-    # this stage returns the instruction
 
 def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     global reg, pc
@@ -177,7 +177,7 @@ def decode(instr, cRegDst, cLoRd, cHiRd, cJmp, cJr, cLink):
     # extracting components
     i = bin(instr)[2:].zfill(32)
     # opcode = instr[31:26]
-    opcode = int(i[0:6], 2)
+    opcode = int(i[:6], 2)
     # rdReg1 = instr[25:21]
     rdReg1 = int(i[6:11], 2)
     # rdReg2 = instr[20:16]
@@ -249,6 +249,8 @@ def execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget,
         aluRes1 = aluResult >> 32
         aluRes2 = aluResult - (aluRes1 << 32)
     else:
+        # it is assumed that negative numbers will never be longer than 32 
+        # bits
         aluRes1 = 0
         aluRes2 = aluResult
 
@@ -264,7 +266,8 @@ def execute(instr, pcTemp, rdData1, rdData2, immed, opcode, func, wReg, bTarget,
     # the branch target
     return instr, pcTemp, rdData2, aluRes1, aluRes2, wReg
 
-def memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemReg, cLink):
+def memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, 
+           cMemReg, cLink):
     global dMem, pc
 
     # forming the address out of aluRes2
@@ -273,6 +276,8 @@ def memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemR
     # reading from memory
     if (cMemRd):
         rData = 0
+        # accounting for byte addressibility: fetching memory separately 
+        # from each byte
         for i in range(4):
             rData += (dMem[address+i] << (24-8*i))
         wData = rData if cMemReg else rdData2
@@ -280,6 +285,8 @@ def memory(instr, pcTemp, rdData2, aluRes1, aluRes2, wReg, cMemWr, cMemRd, cMemR
     elif (cMemWr):
         wData = rdData2
         wDStr = bin(wData)[2:].zfill(32)
+        # accounting for byte addressibility: splitting the write value by 
+        # byte and writing it in accordingly
         for i in range(4):
             dMem[address+i] = int(wDStr[(8*i):(8*i+8)], 2)
     
@@ -290,7 +297,7 @@ def writeback(wData, aluRes1, aluRes2, wReg, cRegWr, cHiLoWr):
     global reg, hi, lo
 
     if (cRegWr):
-        # writes data into the register
+        # writes data into the desired register
         reg[wReg] = wData
     if (cHiLoWr):
         # writes data into hi and lo
@@ -324,17 +331,23 @@ def printReg():
 def commitToMem():
     global dMem
 
+    # highest position at which any data is stored - assumed that 
+    # data starts from 0x10000000
     maxAddress = max(list(dMem.keys()))
     with open('bindata', 'w') as f:
         address = 0x10000000
         while True:
             if (address > maxAddress):
                 break
+            # if the address is not in the keys, then the memory 
+            # location must contain zero by default
             if (address not in dMem.keys()):
                 f.write('0'*32+'\n')
             else:
+                # separating words (32-bit values) by lines
                 if (address != 0x10000000):
                     f.write('\n')
+                # accounting for byte addressibility
                 for i in range(4):
                     f.write(bin(dMem[address+i])[2:].zfill(8))
             address += 4
