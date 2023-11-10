@@ -177,6 +177,7 @@ class instrBuffer:
 
 
 IB = instrBuffer()
+c = 0
 
 while True:
 
@@ -194,6 +195,10 @@ while True:
 
     # IF
     if (IB.bufferFetch() == 0):
+        c += 1
+    else:
+        c = 0
+    if (c == 5):
         break
 
     IB.forwardingUnit()
