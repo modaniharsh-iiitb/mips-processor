@@ -131,7 +131,7 @@ The following instructions, as explained briefly earlier, can be simulated by th
 ```
 Instr   Function
 -------------------
-jr?     001000 (08)
+jr      001000 (08)
 mfhi	010000 (16)
 mflo	010010 (18)
 mult	011000 (24)
@@ -164,14 +164,14 @@ sw  	101011 (43)
 Instr   Opcode
 -------------------
 j       000010 (02)
-jal?    000011 (03)
+jal     000011 (03)
 ```
 
 ### Pipelining
 
 #### Pipeline registers
 
-The following pipelined registers are used in `2_op.py`:
+The following pipelined registers are used in `pipelined_op.py`:
 
 - `IFIDReg`
 - `IDEXReg`
@@ -179,6 +179,10 @@ The following pipelined registers are used in `2_op.py`:
 - `MEMWBReg`
 
 #### Resolving hazards
+
+- The program uses a `forwardingUnit` (defined in the `InstructionBuffer` class) to **forward** data to and from registers if dependencies are detected. The working of the forwarding unit is described in detail in the comments.
+- For **stalling**, each pipeline register has a `stall` bit that determines whether its corresponding stage's operation will be stalled in the current cycle. Stalling is used only for load hazards, as ALU hazards can always be resolved using only forwarding.
+- Similar to stalling, each pipeline register also has a `valid` bit that determines whether the stage is going to run in the current cycle. This is used for **pipeline flushing**.
 
 ### Variables and their meaning
 
@@ -210,11 +214,11 @@ The following pipelined registers are used in `2_op.py`:
 
 To emulate the non-pipelined processor, ensure you are in the root directory of this project and run the command:
 
-```python 1_op.py```
+```python non_pipelined_op.py```
 
 Similarly, for the pipelined processor, run the following command:
 
-```python 2_op.py```
+```python pipelined_op.py```
 
 ### Output
 
@@ -275,6 +279,8 @@ Value of data memory:
 ```
 
 The values of data memory, in addition, are also stored into the `bindata` file.
+
+Note that the value of the number of cycles and time taken changes.
 
 ## External References (Outside the material of this course)
 
